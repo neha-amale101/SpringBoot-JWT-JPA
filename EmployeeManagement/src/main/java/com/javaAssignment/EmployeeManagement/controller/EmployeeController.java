@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.javaAssignment.EmployeeManagement.config.JwtTokenUtil;
 import com.javaAssignment.EmployeeManagement.model.DAOEmployee;
+import com.javaAssignment.EmployeeManagement.model.EmployeeAPIResponse;
 import com.javaAssignment.EmployeeManagement.service.EmployeeService;
 
 @RestController
@@ -89,17 +90,19 @@ public class EmployeeController {
 	}
 
 	/* Delete an Employee */
-	@RequestMapping(value = "/deleteEmployee", method = RequestMethod.DELETE, produces = MediaType.APPLICATION_JSON_VALUE)
-	public ResponseEntity<DAOEmployee> deleteEmployee(@RequestBody DAOEmployee emp) {
+	@RequestMapping(value = "/deleteEmployee/{employeeId}", method = RequestMethod.DELETE, produces = MediaType.APPLICATION_JSON_VALUE)
+	public ResponseEntity<DAOEmployee> deleteEmployee(@PathVariable Integer employeeId) {
 
-		if (emp == null || emp.getId() == null) {
+		if (employeeId == null) {
+			System.out.println("emp is null");
 			return new ResponseEntity<DAOEmployee>(HttpStatus.NOT_FOUND);
 		}
-		DAOEmployee empDetails = employeeService.findOneByEmployeeId(emp.getId());
+		
+		DAOEmployee empDetails = employeeService.findOneByEmployeeId(employeeId);
 		if (empDetails == null) {
 			return ResponseEntity.notFound().build();
 		}
-		employeeService.delete(emp);
+		employeeService.delete(empDetails);
 		return ResponseEntity.ok().build();
 	}
 
@@ -116,8 +119,8 @@ public class EmployeeController {
 
 	/* Get all Employee based on Manager Id */
 	@RequestMapping(value = "/getAllEmployee", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
-	public ResponseEntity<Set<DAOEmployee>> getEmployeeById(@RequestHeader("Authorization") String authCode) {
-
+	public ResponseEntity<?> getEmployeeById(@RequestHeader("Authorization") String authCode) {
+		EmployeeAPIResponse<Set<DAOEmployee>> employeeAPIResponse = new EmployeeAPIResponse<Set<DAOEmployee>>();		
 		String jwtToken;
 		try {
 			if (authCode != null && authCode.startsWith("Bearer ")) {
@@ -125,20 +128,25 @@ public class EmployeeController {
 				String userEmail = jwtTokenUtil.getUsernameFromToken(jwtToken);
 				DAOEmployee manager = employeeService.findOneByEmail(userEmail);
 				if (manager == null) {
+					employeeAPIResponse.setMessage("This user does not exists!!");
 					return ResponseEntity.notFound().build();
 				}
 				Set<DAOEmployee> empList = employeeService.findAllByManager(manager);
 				if (empList == null || empList.size() == 0) {
-					return ResponseEntity.notFound().build();
+					employeeAPIResponse.setMessage("This user does not have employees");
+					return ResponseEntity.ok(employeeAPIResponse);
 				} else {
-					return ResponseEntity.ok().body(empList);
+					employeeAPIResponse.setMessage("Employee list for logged in Manager is as below");
+					employeeAPIResponse.setData(empList);
+					return ResponseEntity.ok(employeeAPIResponse);					
 				}
-
 			} else {
-				return new ResponseEntity<Set<DAOEmployee>>(HttpStatus.UNAUTHORIZED);
+				employeeAPIResponse.setMessage("This user is unauthorized!! Please login");
+				return ResponseEntity.ok(employeeAPIResponse);
 			}
-		} catch (EntityExistsException e) {
-			return new ResponseEntity<Set<DAOEmployee>>(HttpStatus.CONFLICT);
+		} catch (Exception e) {
+			employeeAPIResponse.setMessage("error occured:"+e.getMessage());
+			return ResponseEntity.ok(employeeAPIResponse);
 		}
 
 	}

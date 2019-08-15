@@ -17,6 +17,7 @@ import com.javaAssignment.EmployeeManagement.config.JwtTokenUtil;
 import com.javaAssignment.EmployeeManagement.model.JwtRequest;
 import com.javaAssignment.EmployeeManagement.model.JwtResponse;
 import com.javaAssignment.EmployeeManagement.model.DAOEmployee;
+import com.javaAssignment.EmployeeManagement.model.EmployeeAPIResponse;
 import com.javaAssignment.EmployeeManagement.model.EmployeeDTO;
 import com.javaAssignment.EmployeeManagement.service.JwtUserDetailsService;
 
@@ -33,21 +34,31 @@ public class JwtAuthenticationController {
 	@Autowired
 	private JwtUserDetailsService userDetailsService;
 
+	// request to login and generate auth token as response
 	@RequestMapping(value = "/authenticate", method = RequestMethod.POST)
 	public ResponseEntity<?> createAuthenticationToken(@RequestBody JwtRequest authenticationRequest) throws Exception {
 
 		authenticate(authenticationRequest.getEmail(), authenticationRequest.getPassword());
-
-		final UserDetails userDetails = userDetailsService
-				.loadUserByUsername(authenticationRequest.getEmail());
-
-		final String token = jwtTokenUtil.generateToken(userDetails);		
-		return ResponseEntity.ok(new JwtResponse(token));
+		final UserDetails userDetails = userDetailsService.loadUserByUsername(authenticationRequest.getEmail());
+		final String token = jwtTokenUtil.generateToken(userDetails);
+		EmployeeAPIResponse<DAOEmployee> employeeAPIResponse = new EmployeeAPIResponse<DAOEmployee>();
+		employeeAPIResponse.setToken(token);
+		employeeAPIResponse.setMessage("User logged in successfully!!");
+		return ResponseEntity.ok(employeeAPIResponse);
 	}
-	
+
+	// request to register new manager
 	@RequestMapping(value = "/register", method = RequestMethod.POST)
 	public ResponseEntity<?> saveUser(@RequestBody EmployeeDTO user) throws Exception {
-		return ResponseEntity.ok(userDetailsService.save(user));
+		DAOEmployee savedEmployee = userDetailsService.save(user);
+		EmployeeAPIResponse<DAOEmployee> employeeAPIResponse = new EmployeeAPIResponse<DAOEmployee>();
+		if (savedEmployee != null && savedEmployee.getId() != null) {
+			employeeAPIResponse.setData(savedEmployee);
+			employeeAPIResponse.setMessage("User registered successfully!!");
+
+		} else
+			employeeAPIResponse.setMessage("User with same email id already exists");
+		return ResponseEntity.ok(employeeAPIResponse);
 	}
 
 	private void authenticate(String email, String password) throws Exception {
